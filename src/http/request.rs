@@ -3,8 +3,6 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use std::str::Utf8Error;
 
-use crate::http::request;
-
 pub struct Request {
     path: String,
     query: Option<String>,
@@ -23,6 +21,16 @@ impl TryFrom<&[u8]> for Request {
 
         unimplemented!()
     }
+}
+
+fn get_next_word(request: &str) -> Option<(&str, &str)> {
+
+    for (i, c) in request.chars().enumerate() {
+        if c == ' ' {
+            return Some((&request[..i], &request[i + 1..]));
+        }
+    }
+    None
 }
 
 pub enum ParseError {
@@ -45,7 +53,7 @@ impl ParseError {
 
 impl From<Utf8Error> for ParseError {
     fn from(_: Utf8Error) -> Self {
-        
+        Self::InvalidEncoding
     }
 }
 
