@@ -1,7 +1,10 @@
 use core::str;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
+use std::path;
 use std::str::Utf8Error;
+
+use crate::http::request;
 
 pub struct Request {
     path: String,
@@ -13,12 +16,20 @@ impl TryFrom<&[u8]> for Request {
     type Error = ParseError;
 
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
-        match str::from_utf8(buf).or(Err(ParseError::InvalidEncoding)) {
-            Ok(request) => {},
-            Err(e) => return Err(e),
-        }
         let request = str::from_utf8(buf)?;
 
+        match get_next_word(request) {
+            Some((method, request)) => {},
+            None => return Err(ParseError::InvalidRequest),
+        }
+
+        let (method, request) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
+        let (path, request) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
+        let (protocol, _) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
+
+        if protocol != "HTTP/1.1" {
+            return Err(ParseError::InvalidProtocol)
+        }
         unimplemented!()
     }
 }
@@ -26,14 +37,14 @@ impl TryFrom<&[u8]> for Request {
 fn get_next_word(request: &str) -> Option<(&str, &str)> {
 
     for (i, c) in request.chars().enumerate() {
-        if c == ' ' {
+        if c == ' ' || c == '\r' {
             return Some((&request[..i], &request[i + 1..]));
         }
     }
     None
 }
 
-pub enum ParseError {
+pub enum ParseError { 
     InvalidRequest,
     InvalidEncoding,
     InvalidProtocol,
